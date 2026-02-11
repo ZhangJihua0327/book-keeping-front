@@ -11,7 +11,10 @@ services:
       - "8001:80"
       - "443:443"
     restart: always
-    
+    networks:
+      - bookeeper
+
 networks:
   bookeeper:
     external: true
+
