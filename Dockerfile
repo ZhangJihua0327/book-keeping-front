@@ -22,6 +22,9 @@ RUN npm run build
 # production stage
 FROM nginx:stable-alpine3.23-perl   as production-stage
 
+# Config apk to use aliyun mirror
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 # Install Certbot and OpenSSL
 RUN apk add --no-cache certbot openssl
 
