@@ -2,11 +2,13 @@
 import { ref, onMounted, reactive } from 'vue';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://book-keeping-backend.lollipopzzz.cn';
+const API_BASE_URL = ''; // 使用 Vite 代理转发到 localhost:8000
+// const API_BASE_URL = 'https://book-keeping-backend.lollipopzzz.cn';
 
 // Data models
 const customers = ref([]);
 const trunkModels = ref([]);
+const todaysRecords = ref([]); // Records for the day
 
 // Form State
 const form = reactive({
@@ -42,6 +44,7 @@ const api = axios.create({
 // Lifecycle
 onMounted(async () => {
   await fetchData();
+  await fetchTodaysRecords();
 });
 
 const fetchData = async () => {
@@ -54,7 +57,20 @@ const fetchData = async () => {
     trunkModels.value = modelRes.data;
   } catch (err) {
     console.error('Failed to load data', err);
-    error.value = 'Failed to load options from backend (' + API_BASE_URL + ').';
+    error.value = '无法加载选项数据 (' + API_BASE_URL + ').';
+  }
+};
+
+const fetchTodaysRecords = async () => {
+  try {
+    const res = await api.get('/api/records');
+    const todayStr = new Date().toISOString().substr(0, 10);
+    // Filter for today's records. Assuming record has a 'date' field.
+    if (res.data && Array.isArray(res.data)) {
+        todaysRecords.value = res.data.filter(r => r.date === todayStr);
+    }
+  } catch (err) {
+    console.error('Failed to load today\'s records', err);
   }
 };
 
@@ -67,7 +83,7 @@ const submitForm = async () => {
   try {
     // Validate
     if (!form.customer_name || !form.trunk_model) {
-      throw new Error('Please select customer and trunk model');
+      throw new Error('请选择客户和车型');
     }
 
     const payload = { ...form };
@@ -81,10 +97,15 @@ const submitForm = async () => {
     // Clear numeric fields but keep date, site maybe?
     form.quantity = 0;
     form.price = 0;
+    form.remark = '';
+
+    // Refresh today's records
+    await fetchTodaysRecords();
+
   } catch (err) {
     console.error('Submit error', err);
     // Determine error message
-    const msg = err.response?.data?.error || err.message || 'Submission failed';
+    const msg = err.response?.data?.error || err.message || '提交失败';
     error.value = msg;
   } finally {
     loading.value = false;
@@ -100,7 +121,7 @@ const addCustomer = async () => {
     newCustomerName.value = '';
     showAddCustomer.value = false;
   } catch (err) {
-    alert('Failed to add customer: ' + (err.response?.data?.error || err.message));
+    alert('无法添加客户: ' + (err.response?.data?.error || err.message));
   }
 };
 
@@ -113,7 +134,7 @@ const addTrunkModel = async () => {
     newTrunkModelName.value = '';
     showAddTrunkModel.value = false;
   } catch (err) {
-    alert('Failed to add model: ' + (err.response?.data?.error || err.message));
+    alert('无法添加车型: ' + (err.response?.data?.error || err.message));
   }
 };
 </script>
@@ -121,75 +142,65 @@ const addTrunkModel = async () => {
 <template>
   <div class="form-wrapper">
     <div v-if="error" class="error-msg">{{ error }}</div>
-    <div v-if="success" class="success-msg">Record saved successfully!</div>
+    <div v-if="success" class="success-msg">记录已保存!</div>
 
     <form @submit.prevent="submitForm">
       
       <!-- Date -->
       <div class="form-group">
-        <label>Date</label>
+        <label>日期</label>
         <input type="date" v-model="form.date" required />
       </div>
 
       <!-- Customer -->
       <div class="form-group">
-        <label>Customer</label>
-        <div class="radio-group" v-if="customers.length > 0">
-          <label v-for="c in customers" :key="c.id" class="radio-label">
-            <input type="radio" :value="c.customer_name" v-model="form.customer_name" />
-            {{ c.customer_name }}
-          </label>
+        <label>客户</label>
+        <div class="select-wrapper">
+          <select v-model="form.customer_name" required>
+            <option disabled value="">-- 请选择客户 --</option>
+            <option v-for="c in customers" :key="c.id" :value="c.customer_name">{{ c.customer_name }}</option>
+          </select>
+          <button type="button" @click="showAddCustomer = !showAddCustomer" class="add-btn-icon" title="添加新客户">+</button>
         </div>
-        <div v-else class="empty-hint">No customers found.</div>
         
-        <div class="add-section">
-          <button type="button" @click="showAddCustomer = !showAddCustomer" class="add-btn">
-            {{ showAddCustomer ? 'Cancel' : '+ Add Customer' }}
-          </button>
-          <div v-if="showAddCustomer" class="add-box">
-            <input v-model="newCustomerName" placeholder="New Customer Name" />
-            <button type="button" @click="addCustomer" class="save-small-btn">Save</button>
-          </div>
+        <div v-if="showAddCustomer" class="add-box">
+          <input v-model="newCustomerName" placeholder="输入新客户名" />
+          <button type="button" @click="addCustomer" class="save-small-btn">保存</button>
         </div>
       </div>
 
       <!-- Trunk Model -->
       <div class="form-group">
-        <label>Trunk Model</label>
-        <div class="radio-group" v-if="trunkModels.length > 0">
-          <label v-for="m in trunkModels" :key="m.id" class="radio-label">
-            <input type="radio" :value="m.trunk_model" v-model="form.trunk_model" />
-            {{ m.trunk_model }}
-          </label>
+        <label>车型</label>
+        <div class="select-wrapper">
+          <select v-model="form.trunk_model" required>
+            <option disabled value="">-- 请选择车型 --</option>
+            <option v-for="m in trunkModels" :key="m.id" :value="m.trunk_model">{{ m.trunk_model }}</option>
+          </select>
+          <button type="button" @click="showAddTrunkModel = !showAddTrunkModel" class="add-btn-icon" title="添加新车型">+</button>
         </div>
-         <div v-else class="empty-hint">No models found.</div>
 
-        <div class="add-section">
-          <button type="button" @click="showAddTrunkModel = !showAddTrunkModel" class="add-btn">
-            {{ showAddTrunkModel ? 'Cancel' : '+ Add Model' }}
-          </button>
-          <div v-if="showAddTrunkModel" class="add-box">
-            <input v-model="newTrunkModelName" placeholder="New Model Name" />
-            <button type="button" @click="addTrunkModel" class="save-small-btn">Save</button>
-          </div>
+        <div v-if="showAddTrunkModel" class="add-box">
+          <input v-model="newTrunkModelName" placeholder="输入新车型" />
+          <button type="button" @click="addTrunkModel" class="save-small-btn">保存</button>
         </div>
       </div>
 
       <!-- Construction Site -->
       <div class="form-group">
-        <label>Construction Site</label>
-        <input type="text" v-model="form.construction_site" required />
+        <label>施工地点</label>
+        <input type="text" v-model="form.construction_site" required placeholder="请输入地址" />
       </div>
 
       <!-- Quantity & Price -->
       <div class="row">
         <div class="form-group half">
-          <label>Quantity</label>
-          <input type="number" v-model.number="form.quantity" required min="1" />
+          <label>方量</label>
+          <input type="number" v-model.number="form.quantity" required min="1" placeholder="0" />
         </div>
         <div class="form-group half">
-          <label>Price</label>
-          <input type="number" v-model.number="form.price" required min="0" />
+          <label>价格</label>
+          <input type="number" v-model.number="form.price" required min="0" placeholder="¥ 0" />
         </div>
       </div>
 
@@ -197,31 +208,68 @@ const addTrunkModel = async () => {
       <div class="form-group checkbox-group">
         <label>
           <input type="checkbox" v-model="form.charged" />
-          Is Charged?
+          是否已经收费
         </label>
       </div>
 
       <!-- Remark -->
       <div class="form-group">
-        <label>Remark</label>
-        <textarea v-model="form.remark"></textarea>
+        <label>备注</label>
+        <textarea v-model="form.remark" placeholder="备注信息 (可选)"></textarea>
       </div>
 
       <button type="submit" :disabled="loading" class="submit-btn">
-        {{ loading ? 'Submitting...' : 'Create Record' }}
+        {{ loading ? '提交中...' : '创建记录' }}
       </button>
     </form>
+
+    <div class="records-section">
+      <h3>今日登记记录</h3>
+      <div class="table-container" v-if="todaysRecords.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>客户</th>
+              <th>车型</th>
+              <th>地点</th>
+              <th>方量</th>
+              <th>价格</th>
+              <th>收费</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="record in todaysRecords" :key="record.id">
+              <td>{{ record.customer_name }}</td>
+              <td>{{ record.trunk_model }}</td>
+              <td>{{ record.construction_site }}</td>
+              <td>{{ record.quantity }}</td>
+              <td>{{ record.price }}</td>
+              <td>
+                <span :class="['tag', record.charged ? 'tag-yes' : 'tag-no']">
+                  {{ record.charged ? '是' : '否' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-else class="empty-hint">
+        今天还没有创建记录
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .form-wrapper {
-  background: #2a2a2a;
+  background: #ffffff;
   padding: 2rem;
   border-radius: 8px;
   text-align: left;
   max-width: 600px;
   margin: 0 auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eee;
 }
 .form-group {
   margin-bottom: 1.5rem;
@@ -230,72 +278,65 @@ label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: bold;
-  color: #ddd;
+  color: #333;
 }
 input[type="text"],
 input[type="date"],
 input[type="number"],
+select,
 textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #555;
-  background: #333;
-  color: white;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
   border-radius: 4px;
   box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #646cff;
+}
+select {
+  cursor: pointer;
 }
 textarea {
   min-height: 80px;
 }
-.radio-group {
+
+/* Select wrapper for the + button */
+.select-wrapper {
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 10px;
 }
-.radio-label {
-  background: #3a3a3a;
-  padding: 8px 12px;
-  border-radius: 20px;
+.add-btn-icon {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  color: #666;
+  width: 40px;
+  font-size: 1.2rem;
   cursor: pointer;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-weight: normal;
-  border: 1px solid #444;
-  transition: all 0.2s;
+  justify-content: center;
+  transition: background 0.2s;
 }
-.radio-label:hover {
-  background: #444;
+.add-btn-icon:hover {
+  background: #e0e0e0;
 }
-.radio-label:has(input:checked) {
-  background: #42b983; /* Vue Green */
-  color: white;
-  border-color: #42b983;
-}
-.radio-label input {
-  margin: 0;
-}
-.add-section {
-  margin-top: 5px;
-}
-.add-btn {
-  background: transparent;
-  border: 1px dashed #777;
-  color: #ccc;
-  cursor: pointer;
-  padding: 5px 10px;
-  font-size: 0.9em;
-  border-radius: 4px;
-}
-.add-btn:hover {
-  border-color: #fff;
-  color: #fff;
-}
+
 .add-box {
   margin-top: 10px;
   display: flex;
   gap: 5px;
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
 }
 .save-small-btn {
   background: #42b983;
@@ -304,7 +345,12 @@ textarea {
   padding: 0 15px;
   border-radius: 4px;
   cursor: pointer;
+  white-space: nowrap;
 }
+.save-small-btn:hover {
+  background: #3aa876;
+}
+
 .submit-btn {
   width: 100%;
   padding: 12px;
@@ -316,27 +362,28 @@ textarea {
   font-weight: bold;
   cursor: pointer;
   transition: background 0.2s;
+  margin-bottom: 2rem;
 }
 .submit-btn:hover {
   background: #535bf2;
 }
 .submit-btn:disabled {
-  background: #444;
+  background: #ccc;
   cursor: not-allowed;
 }
 .error-msg {
-  color: #ff6b6b;
+  color: #d32f2f;
   margin-bottom: 1rem;
   padding: 10px;
-  background: rgba(255, 0, 0, 0.1);
-  border-left: 4px solid #ff6b6b;
+  background: #ffebee;
+  border-left: 4px solid #d32f2f;
 }
 .success-msg {
-  color: #4CAF50;
+  color: #388e3c;
   margin-bottom: 1rem;
   padding: 10px;
-  background: rgba(76, 175, 80, 0.1);
-  border-left: 4px solid #4CAF50;
+  background: #e8f5e9;
+  border-left: 4px solid #388e3c;
 }
 .row {
   display: flex;
@@ -353,9 +400,62 @@ textarea {
   font-weight: normal;
 }
 .empty-hint {
-  color: #888;
+  color: #999;
   font-style: italic;
   font-size: 0.9em;
-  margin-bottom: 5px;
+  padding: 10px;
+  text-align: center;
+}
+
+/* Records Section */
+.records-section {
+  border-top: 1px solid #ddd;
+  padding-top: 1rem;
+}
+.records-section h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+.table-container {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+th, td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+th {
+  color: #666;
+  font-weight: 600;
+  background: #f5f5f5;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+tr:hover td {
+  background-color: #fcfcfc;
+}
+.tag {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+.tag-yes {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+.tag-no {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
 }
 </style>

@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  book-keeping-front:
+    image: book-keeping-front:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: book-keeping-front-container
+    ports:
+      - "80:80"
+    restart: always
