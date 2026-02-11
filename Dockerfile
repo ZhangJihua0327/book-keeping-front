@@ -20,7 +20,7 @@ COPY . .
 RUN npm run build
 
 # production stage
-FROM nginx:stable-alpine as production-stage
+FROM nginx:stable-alpine3.23-perl   as production-stage
 
 # Install Certbot and OpenSSL
 RUN apk add --no-cache certbot openssl
