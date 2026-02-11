@@ -22,14 +22,21 @@ RUN npm run build
 # production stage
 FROM nginx:stable-alpine as production-stage
 
+# Install Certbot and OpenSSL
+RUN apk add --no-cache certbot openssl
+
 # copy build artifacts
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
 # copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# expose port 80
-EXPOSE 80
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# expose ports
+EXPOSE 80 443
+
+# start using entrypoint
+ENTRYPOINT ["/entrypoint.sh"]

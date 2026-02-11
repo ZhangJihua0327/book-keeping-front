@@ -9,4 +9,9 @@ services:
     container_name: book-keeping-front-container
     ports:
       - "8001:80"
+      - "443:443"
     restart: always
+    
+networks:
+  bookeeper:
+    external: true
