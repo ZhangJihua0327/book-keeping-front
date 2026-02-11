@@ -4,7 +4,7 @@ import WorkRecordForm from './components/WorkRecordForm.vue';
 
 <template>
   <div class="container">
-    <h1>Create Work Record</h1>
+    <h1>今天在哪儿发财</h1>
     <WorkRecordForm />
   </div>
 </template>

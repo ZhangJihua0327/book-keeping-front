@@ -8,5 +8,5 @@ services:
       dockerfile: Dockerfile
     container_name: book-keeping-front-container
     ports:
-      - "80:80"
+      - "8001:80"
     restart: always
