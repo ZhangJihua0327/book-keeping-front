@@ -115,9 +115,13 @@ const submitForm = async () => {
     await api.post('/api/records', payload);
     success.value = true;
     
-    // Clear numeric fields but keep date, site maybe?
+    // Clear all fields except date
+    form.customer_name = '';
+    form.trunk_model = '';
+    form.construction_site = '';
     form.quantity = 0;
     form.price = 0;
+    form.charged = false;
     form.remark = '';
 
     // Refresh today's records
